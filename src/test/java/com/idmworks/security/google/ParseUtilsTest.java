@@ -17,7 +17,7 @@ public class ParseUtilsTest {
     String json =
             "{\n"
             + "\"access_token\":\"1/fFAGRNJru1FTz70BzhT3Zg\",\n"
-            + "\"expires_in\":3920,\n"
+            + "\"expires_in\":3930,\n"
             + "\"token_type\":\"Bearer\"\n"
             + "}";
 
