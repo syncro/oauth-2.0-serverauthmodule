@@ -1,14 +1,17 @@
-package com.idmworks.security.google.api;
+package com.smartlogic.security.api;
 
 import java.io.Serializable;
 
 /**
- * User information from google account.
+ * User information from OAuth account.
  *
  * @author pdgreen
+ * @author rahlander
  */
-public class GoogleUserInfo implements Serializable {
+public class UserInfo implements Serializable {
 
+	private static final long serialVersionUID = 1L;
+	
   private final String id;
   private final String email;
   private final boolean verifiedEmail;
@@ -20,7 +23,7 @@ public class GoogleUserInfo implements Serializable {
   private final String picture;
   private final String locale;
 
-  public GoogleUserInfo(String id, String email, boolean verifiedEmail, String name, String givenName, String familyName, String gender, String link, String picture, String locale) {
+  public UserInfo(String id, String email, boolean verifiedEmail, String name, String givenName, String familyName, String gender, String link, String picture, String locale) {
     this.id = id;
     this.email = email;
     this.verifiedEmail = verifiedEmail;

@@ -1,6 +1,9 @@
-package com.idmworks.security.google;
+package com.idmworks.security;
 
-import com.idmworks.security.google.api.GoogleUserInfo;
+import com.smartlogic.security.AccessTokenInfo;
+import com.smartlogic.security.ParseUtils;
+import com.smartlogic.security.api.UserInfo;
+
 import org.junit.*;
 import static org.junit.Assert.*;
 import static org.hamcrest.CoreMatchers.*;
@@ -17,7 +20,7 @@ public class ParseUtilsTest {
     String json =
             "{\n"
             + "\"access_token\":\"1/fFAGRNJru1FTz70BzhT3Zg\",\n"
-            + "\"expires_in\":3930,\n"
+            + "\"expires_in\":3920,\n"
             + "\"token_type\":\"Bearer\"\n"
             + "}";
 
@@ -29,12 +32,12 @@ public class ParseUtilsTest {
   }
 
   @Test
-  public void testParseGoogleUserInfoJson() {
+  public void testParseUserInfoJson() {
     String json =
             "{\n"
-            + "\"id\": \"1074968992519869407200\",\n"
+            + "\"sub\": \"1074968992519869407200\",\n"
             + "\"email\": \"fake.name@gmail.com\",\n"
-            + "\"verified_email\": true,\n"
+            + "\"email_verified\": true,\n"
             + "\"name\": \"Fake Name\",\n"
             + "\"given_name\": \"Fake\",\n"
             + "\"family_name\": \"Name\",\n"
@@ -44,7 +47,7 @@ public class ParseUtilsTest {
             + "\"locale\": \"en-US\"\n"
             + "}";
 
-    final GoogleUserInfo result = ParseUtils.parseGoogleUserInfoJson(json);
+    final UserInfo result = ParseUtils.parseUserInfoJson(json);
 
     assertThat(result, is(notNullValue()));
     assertThat(result.getId(), is("1074968992519869407200"));

@@ -1,7 +1,5 @@
-package com.idmworks.security.google;
+package com.smartlogic.security;
 
-import com.idmworks.security.google.api.GoogleOAuthPrincipal;
-import com.idmworks.security.google.api.GoogleUserInfo;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -27,12 +25,16 @@ import javax.security.auth.message.module.ServerAuthModule;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.smartlogic.security.api.OAuthPrincipal;
+import com.smartlogic.security.api.UserInfo;
+
 /**
- * SAM ({@link ServerAuthModule}) for Google OAuth.
+ * SAM ({@link ServerAuthModule}) for OAuth.
  *
  * @author pdgreen
+ * @author rahlander
  */
-public class GoogleOAuthServerAuthModule implements ServerAuthModule {
+public class OAuthServerAuthModule implements ServerAuthModule {
 
   /*
    * SAM Constants
@@ -40,7 +42,7 @@ public class GoogleOAuthServerAuthModule implements ServerAuthModule {
   private static final String LEARNING_CONTEXT_KEY = "javax.security.auth.login.LoginContext";
   private static final String IS_MANDATORY_INFO_KEY = "javax.security.auth.message.MessagePolicy.isMandatory";
   private static final String AUTH_TYPE_INFO_KEY = "javax.servlet.http.authType";
-  private static final String AUTH_TYPE_GOOGLE_OAUTH_KEY = "Google-OAuth";
+  private static final String AUTH_TYPE_OAUTH_KEY = "OAuth";
   /*
    * defaults
    */
@@ -55,7 +57,8 @@ public class GoogleOAuthServerAuthModule implements ServerAuthModule {
   private static final String IGNORE_MISSING_LOGIN_CONTEXT = "ignore_missing_login_context";
   private static final String ADD_DOMAIN_AS_GROUP = "add_domain_as_group";
   private static final String DEFAULT_GROUPS_PROPERTY_NAME = "default_groups";
-  private static Logger LOGGER = Logger.getLogger(GoogleOAuthServerAuthModule.class.getName());
+  private static final String SCOPE_VALUES = "oauth.scope";
+  private static Logger LOGGER = Logger.getLogger(OAuthServerAuthModule.class.getName());
   protected static final Class[] SUPPORTED_MESSAGE_TYPES = new Class[]{
     javax.servlet.http.HttpServletRequest.class,
     javax.servlet.http.HttpServletResponse.class};
@@ -68,8 +71,9 @@ public class GoogleOAuthServerAuthModule implements ServerAuthModule {
   private boolean ignoreMissingLoginContext;
   private boolean addDomainAsGroup;
   private String defaultGroups;
-  private GoogleOAuthCallbackHandler googleOAuthCallbackHandler;
+  private OAuthCallbackHandler oAuthCallbackHandler;
   private LoginContextWrapper loginContextWrapper;
+  private String scopes;
 
   String retrieveOptionalProperty(final Map<String, String> properties, final String name, final String defaultValue) {
     LOGGER.log(Level.FINER, "retrieveOptionalProperty(_,{0},_)", name);
@@ -99,7 +103,7 @@ public class GoogleOAuthServerAuthModule implements ServerAuthModule {
     this.clientid = retrieveRequiredProperty(options, CLIENTID_PROPERTY_NAME);
     this.clientSecret = retrieveRequiredProperty(options, CLIENTSECRET_PROPERTY_NAME);
     try {
-      this.endpoint = new URI(retrieveOptionalProperty(options, ENDPOINT_PROPERTY_NAME, GoogleApiUtils.TOKEN_API_URI_DEFAULT_ENDPOINT));
+      this.endpoint = new URI(retrieveRequiredProperty(options, ENDPOINT_PROPERTY_NAME));
     } catch (URISyntaxException ex) {
       final String message = String.format("Invalid field '%s'", ENDPOINT_PROPERTY_NAME);
       LOGGER.log(Level.SEVERE, message, ex);
@@ -111,11 +115,12 @@ public class GoogleOAuthServerAuthModule implements ServerAuthModule {
     this.ignoreMissingLoginContext = Boolean.parseBoolean(retrieveOptionalProperty(options, IGNORE_MISSING_LOGIN_CONTEXT, Boolean.toString(false)));
     this.addDomainAsGroup = Boolean.parseBoolean(retrieveOptionalProperty(options, ADD_DOMAIN_AS_GROUP, Boolean.toString(false)));
     this.defaultGroups = retrieveOptionalProperty(options, DEFAULT_GROUPS_PROPERTY_NAME, "");
-    final String learningContextName = retrieveOptionalProperty(options, LEARNING_CONTEXT_KEY, GoogleOAuthServerAuthModule.class.getName());
-    this.googleOAuthCallbackHandler = new GoogleOAuthCallbackHandler();
-    this.loginContextWrapper = new LoginContextWrapper(createLoginContext(learningContextName, googleOAuthCallbackHandler));
+    this.scopes = retrieveOptionalProperty(options, SCOPE_VALUES, ApiUtils.USERINFO_API_PERMISSIONS);
+    final String learningContextName = retrieveOptionalProperty(options, LEARNING_CONTEXT_KEY, OAuthServerAuthModule.class.getName());
+    this.oAuthCallbackHandler = new OAuthCallbackHandler();
+    this.loginContextWrapper = new LoginContextWrapper(createLoginContext(learningContextName, oAuthCallbackHandler));
 
-    LOGGER.log(Level.FINE, "{0} initialized", new Object[]{GoogleOAuthServerAuthModule.class.getSimpleName()});
+    LOGGER.log(Level.FINE, "{0} initialized", new Object[]{OAuthServerAuthModule.class.getSimpleName()});
   }
 
   static AuthException wrapException(final String message, final LoginException loginException) {
@@ -129,14 +134,14 @@ public class GoogleOAuthServerAuthModule implements ServerAuthModule {
    * Creates a LoginContext. If No LoginModules configured for loginContextName, null is returned.
    *
    * @param loginContextName name of the LoginContext to use
-   * @param googleOAuthCallbackHandler handler to pass to loginContext
+   * @param oAuthCallbackHandler handler to pass to loginContext
    * @return LoginContext for loginContextName or null
    * @throws AuthException thrown when LoginException is thrown during LoginContext creation
    */
-  LoginContext createLoginContext(final String loginContextName, final GoogleOAuthCallbackHandler googleOAuthCallbackHandler) throws AuthException {
+  LoginContext createLoginContext(final String loginContextName, final OAuthCallbackHandler oAuthCallbackHandler) throws AuthException {
     try {
       final LoginContext createdLoginContext =
-              new LoginContext(loginContextName, googleOAuthCallbackHandler);
+              new LoginContext(loginContextName, oAuthCallbackHandler);
       return createdLoginContext;
     } catch (LoginException ex) {
       if (ignoreMissingLoginContext && ex.getMessage().contains("No LoginModules configured")) {
@@ -174,41 +179,41 @@ public class GoogleOAuthServerAuthModule implements ServerAuthModule {
   }
 
   AuthStatus handleOauthResponse(final MessageInfo messageInfo, final HttpServletRequest request, final HttpServletResponse response, final Subject clientSubject) throws AuthException {
-    final String authorizationCode = request.getParameter(GoogleApiUtils.TOKEN_API_CODE_PARAMETER);
-    final String error = request.getParameter(GoogleApiUtils.TOKEN_API_ERROR_PARAMETER);
+    final String authorizationCode = request.getParameter(ApiUtils.TOKEN_API_CODE_PARAMETER);
+    final String error = request.getParameter(ApiUtils.TOKEN_API_ERROR_PARAMETER);
     if (error != null && !error.isEmpty()) {
       LOGGER.log(Level.WARNING, "Error authorizing: {0}", new Object[]{error});
       //FIXME add an error page configuration  and return SEND_FAILURE (how do you use FAILURE?  it returns blank page)
       return AuthStatus.FAILURE;
     } else {
       final String redirectUri = buildRedirectUri(request);
-      final AccessTokenInfo accessTokenInfo = GoogleApiUtils.lookupAccessTokenInfo(redirectUri, authorizationCode, clientid, clientSecret);
+      final AccessTokenInfo accessTokenInfo = ApiUtils.lookupAccessTokenInfo(endpoint, redirectUri, authorizationCode, clientid, clientSecret);
       LOGGER.log(Level.FINE, "Access Token: {0}", new Object[]{accessTokenInfo});
 
-      final GoogleUserInfo googleUserInfo = GoogleApiUtils.retrieveGoogleUserInfo(accessTokenInfo);
-      if (googleUserInfo == null) {
+      final UserInfo userInfo = ApiUtils.retrieveUserInfo(endpoint, accessTokenInfo);
+      if (userInfo == null) {
         //FIXME handle failure better
         return AuthStatus.SEND_FAILURE;
       } else {
-        authenticate(messageInfo, request, response, clientSubject, googleUserInfo);
+        authenticate(messageInfo, request, response, clientSubject, userInfo, accessTokenInfo.getGroups());
         return AuthStatus.SEND_CONTINUE;
       }
     }
   }
 
-  void authenticate(final MessageInfo messageInfo, final HttpServletRequest request, final HttpServletResponse response, final Subject subject, final GoogleUserInfo googleUserInfo) throws AuthException {
+  void authenticate(final MessageInfo messageInfo, final HttpServletRequest request, final HttpServletResponse response, final Subject subject, final UserInfo userInfo, final String tokenGroups) throws AuthException {
     final StateHelper stateHelper = new StateHelper(request);
 
-    googleOAuthCallbackHandler.setGoogleUserInfo(googleUserInfo);
+    oAuthCallbackHandler.setUserInfo(userInfo);
 
     final Subject lcSubject = loginWithLoginContext();
 
     LOGGER.log(Level.FINE, "Subject from Login Context: {0}", lcSubject);
 
-    final List<String> groups = buildGroupNames(googleUserInfo, lcSubject.getPrincipals());
+    final List<String> groups = buildGroupNames(userInfo, lcSubject.getPrincipals(), tokenGroups);
 
-    setCallerPrincipal(subject, googleUserInfo, groups);
-    messageInfo.getMap().put(AUTH_TYPE_INFO_KEY, AUTH_TYPE_GOOGLE_OAUTH_KEY);
+    setCallerPrincipal(subject, userInfo, groups);
+    messageInfo.getMap().put(AUTH_TYPE_INFO_KEY, AUTH_TYPE_OAUTH_KEY);
     stateHelper.saveSubject(subject);
 
     final URI orignalRequestUri = stateHelper.extractOriginalRequestPath();
@@ -250,7 +255,7 @@ public class GoogleOAuthServerAuthModule implements ServerAuthModule {
     } else {
       stateHelper.saveOriginalRequestPath();
       final String redirectUri = buildRedirectUri(request);
-      final URI oauthUri = GoogleApiUtils.buildOauthUri(redirectUri, endpoint, clientid);
+      final URI oauthUri = ApiUtils.buildOauthAuthorizeUri(redirectUri, endpoint, clientid, scopes);
       try {
         LOGGER.log(Level.FINE, "redirecting to {0} for OAuth", new Object[]{oauthUri});
         response.sendRedirect(oauthUri.toString());
@@ -264,21 +269,26 @@ public class GoogleOAuthServerAuthModule implements ServerAuthModule {
   /**
    * Builds a list of group names which contain any groups from defaultGroups and any principals from LoginContext
    *
-   * @param googleUserInfo user being authenticate, the domain of the email may be used for a group
+   * @param userInfo user being authenticate, the domain of the email may be used for a group
    * @param principals principals from LoginContext
+   * @param tokenGroups groups discovered as a claim on the token.
    * @return list of groupNames for the user
    */
-  List<String> buildGroupNames(final GoogleUserInfo googleUserInfo, final Iterable<Principal> principals) {
+  List<String> buildGroupNames(final UserInfo userInfo, final Iterable<Principal> principals, final String tokenGroups) {
     final List<String> groups = new ArrayList<String>();
 
     // add default groups if defined
     if (!defaultGroups.isEmpty()) {
       groups.addAll(Arrays.asList(defaultGroups.split(",")));
     }
+    
+    if( tokenGroups != null && !tokenGroups.isEmpty()){
+    	groups.addAll(Arrays.asList(tokenGroups.split(",")));
+    }
 
     // add domain of email as group
-    if (addDomainAsGroup && googleUserInfo.getEmail().contains("@")) {
-      final String domain = googleUserInfo.getEmail().split("@", 2)[1];
+    if (addDomainAsGroup && userInfo.getEmail().contains("@")) {
+      final String domain = userInfo.getEmail().split("@", 2)[1];
       groups.add(domain);
     }
 
@@ -309,9 +319,9 @@ public class GoogleOAuthServerAuthModule implements ServerAuthModule {
     }
   }
 
-  boolean setCallerPrincipal(Subject clientSubject, GoogleUserInfo googleUserInfo, List<String> groups) {
+  boolean setCallerPrincipal(Subject clientSubject, UserInfo userInfo, List<String> groups) {
     final CallerPrincipalCallback principalCallback = new CallerPrincipalCallback(
-            clientSubject, new GoogleOAuthPrincipal(googleUserInfo));
+            clientSubject, new OAuthPrincipal(userInfo));
 
     final Callback[] callbacks;
     if (groups.isEmpty()) {
@@ -339,7 +349,7 @@ public class GoogleOAuthServerAuthModule implements ServerAuthModule {
   }
 
   static boolean isMandatory(MessageInfo messageInfo) {
-    return Boolean.valueOf((String) messageInfo.getMap().get(IS_MANDATORY_INFO_KEY));
+    return Boolean.parseBoolean((String)messageInfo.getMap().get(IS_MANDATORY_INFO_KEY));
   }
 
   @Override

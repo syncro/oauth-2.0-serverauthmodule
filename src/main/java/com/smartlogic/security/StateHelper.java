@@ -1,4 +1,4 @@
-package com.idmworks.security.google;
+package com.smartlogic.security;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -12,10 +12,11 @@ import javax.servlet.http.HttpSession;
  * Provides methods for saving and retrieving state.
  *
  * @author pdgreen
+ * @author rahlander
  */
 public class StateHelper {
 
-  private static Logger LOGGER = Logger.getLogger(GoogleOAuthServerAuthModule.class.getName());
+  private static Logger LOGGER = Logger.getLogger(OAuthServerAuthModule.class.getName());
   /*
    * Session Parameters
    */

@@ -1,4 +1,4 @@
-package com.idmworks.security.google;
+package com.smartlogic.security;
 
 import javax.security.auth.Subject;
 import javax.security.auth.login.LoginContext;
@@ -8,6 +8,7 @@ import javax.security.auth.login.LoginException;
  * Wrapper for {@link LoginContext} which properly handles null.
  *
  * @author pdgreen
+ * @author rahlander
  */
 public class LoginContextWrapper {
 
