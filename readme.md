@@ -73,7 +73,8 @@ See [Phillip Green's GlassFish Configuration](https://bitbucket.org/phillip_gree
 ### Tomcat Configuration
 See [Tomcat JASPIC Configuration][tomcat85-jaspic]
 
-####Google Tomcat Config Example
+###Google Tomcat Config Example
+
 	<jaspic-providers xmlns="http://tomcat.apache.org/xml"
 	              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	              xsi:schemaLocation="http://tomcat.apache.org/xml jaspic-providers.xsd"
@@ -97,7 +98,7 @@ See [Tomcat JASPIC Configuration][tomcat85-jaspic]
 	        </provider>
 	</jaspic-providers>
 
-####OKTA Tomcat Config Example
+###OKTA Tomcat Config Example
 
     <jaspic-providers xmlns="http://tomcat.apache.org/xml"
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
