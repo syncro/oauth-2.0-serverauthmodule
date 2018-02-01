@@ -1,15 +1,16 @@
 package com.smartlogic.security;
 
-import static com.smartlogic.security.ApiUtils.*;
-
+import java.lang.reflect.Type;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.exceptions.JWTDecodeException;
-import com.auth0.jwt.interfaces.Claim;
-import com.auth0.jwt.interfaces.DecodedJWT;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
 import com.smartlogic.security.api.UserInfo;
 
 /**
@@ -22,60 +23,38 @@ import com.smartlogic.security.api.UserInfo;
  */
 public class ParseUtils {
 
-  static Map<String, String> parseSimpleJson(final String json) {
-    final String[] parts = json.substring(json.indexOf("{") + 1, json.lastIndexOf("}")).split(",");
+  private static final Logger LOGGER = Logger.getLogger(ParseUtils.class.getName());
 
-    final Map<String, String> values = new HashMap<String, String>();
-    for (final String part : parts) {
-      final String[] vparts = part.replaceAll("\"", "").split(":", 2);
-      values.put(vparts[0].trim(), vparts[1].trim());
+  private static Gson _gsonInstance;
+
+  public static Gson getGsonInstance() {
+    if (_gsonInstance == null) {
+      // Creates the json object which will manage the information received
+      GsonBuilder builder = new GsonBuilder();
+
+      // Register an adapter to manage the date types as long values
+      builder.registerTypeAdapter(Date.class, new JsonDeserializer<Date>() {
+        public Date deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws
+            JsonParseException {
+          return new Date(json.getAsJsonPrimitive().getAsLong());
+        }
+      });
+
+      _gsonInstance = builder.create();
     }
-    return values;
+    return _gsonInstance;
   }
 
+
   public static AccessTokenInfo parseAccessTokenJson(final String json) {
+    LOGGER.log(Level.INFO, "parse access token json: " + json);
 
-    final Map<String, String> values = parseSimpleJson(json);
-
-    final String accessToken = values.get(TOKEN_API_ACCESS_TOKEN_PARAMETER);
-    final String expiresInAsString = values.get(TOKEN_API_EXPIRES_IN_PARAMETER);
-    final String tokenType = values.get(TOKEN_API_TOKEN_TYPE_PARAMETER);
-    
-    String groups = "";
-    try{
-    	DecodedJWT jwt = JWT.decode(accessToken);
-    	Claim groupClaim = jwt.getClaims().get(TOKEN_API_GROUPS_PARAMETER);
-    	if(groupClaim != null){
-    		String[] groupsArray = groupClaim.asArray(String.class);
-    		groups = String.join(",", groupsArray);
-    	}
-    }
-    catch(JWTDecodeException ex){
-    	
-    }
-
-
-    final int expiresIn = Integer.parseInt(expiresInAsString);
-
-    return new AccessTokenInfo(accessToken, new Date(new Date().getTime() + expiresIn * 1000), tokenType, groups);
+    return ParseUtils.getGsonInstance().fromJson(json, AccessTokenInfo.class);
   }
 
   public static UserInfo parseUserInfoJson(final String json) {
+    LOGGER.log(Level.INFO, "parse user info json: " + json);
 
-    final Map<String, String> values = parseSimpleJson(json);
-
-    String id = values.get(USERINFO_API_ID_PARAMETER);
-    if(id == null || id.length() == 0) id = values.get(USERINFO_API_ID_ALT_PARAMETER);
-    final String email = values.get(USERINFO_API_EMAIL_PARAMETER);
-    final boolean verifiedEmail = values.containsKey(USERINFO_API_VERIFIED_EMAIL_PARAMETER) && Boolean.parseBoolean(values.get(USERINFO_API_VERIFIED_EMAIL_PARAMETER));
-    final String name = values.get(USERINFO_API_NAME_PARAMETER);
-    final String givenName = values.get(USERINFO_API_GIVEN_NAME_PARAMETER);
-    final String familyName = values.get(USERINFO_API_FAMILY_NAME_PARAMETER);
-    final String gender = values.get(USERINFO_API_GENDER_PARAMETER);
-    final String link = values.get(USERINFO_API_LINK_PARAMETER);
-    final String picture = values.get(USERINFO_API_PICTURE_PARAMETER);
-    final String locale = values.get(USERINFO_API_LOCALE_PARAMETER);
-
-    return new UserInfo(id, email, verifiedEmail, name, givenName, familyName, gender, link, picture, locale);
+    return ParseUtils.getGsonInstance().fromJson(json, UserInfo.class);
   }
 }

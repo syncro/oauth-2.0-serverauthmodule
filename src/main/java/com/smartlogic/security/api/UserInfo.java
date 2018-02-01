@@ -1,6 +1,7 @@
 package com.smartlogic.security.api;
 
 import java.io.Serializable;
+import com.google.gson.annotations.SerializedName;
 
 /**
  * User information from OAuth account.
@@ -11,29 +12,34 @@ import java.io.Serializable;
 public class UserInfo implements Serializable {
 
 	private static final long serialVersionUID = 1L;
-	
+
   private final String id;
+  private final String sub;
   private final String email;
+  @SerializedName("email_verified")
   private final boolean verifiedEmail;
   private final String name;
+  @SerializedName("given_name")
   private final String givenName;
+  @SerializedName("family_name")
   private final String familyName;
   private final String gender;
   private final String link;
   private final String picture;
   private final String locale;
 
-  public UserInfo(String id, String email, boolean verifiedEmail, String name, String givenName, String familyName, String gender, String link, String picture, String locale) {
-    this.id = id;
-    this.email = email;
-    this.verifiedEmail = verifiedEmail;
-    this.name = name;
-    this.givenName = givenName;
-    this.familyName = familyName;
-    this.gender = gender;
-    this.link = link;
-    this.picture = picture;
-    this.locale = locale;
+  public UserInfo() {
+    this.id = null;
+    this.sub = null;
+    this.email = null;
+    this.verifiedEmail = false;
+    this.name = null;
+    this.givenName = null;
+    this.familyName = null;
+    this.gender = null;
+    this.link = null;
+    this.picture = null;
+    this.locale = null;
   }
 
   public String getEmail() {
@@ -53,6 +59,10 @@ public class UserInfo implements Serializable {
   }
 
   public String getId() {
+    if(id == null || id.isEmpty()) {
+      // If the is is not set, then return the sub as the identifier
+      return sub;
+    }
     return id;
   }
 
