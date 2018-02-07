@@ -47,13 +47,13 @@ public class ParseUtils {
 
 
   public static AccessTokenInfo parseAccessTokenJson(final String json) {
-    LOGGER.log(Level.INFO, "parse access token json: " + json);
+    LOGGER.log(Level.FINER, "parse access token json: " + json);
 
     return ParseUtils.getGsonInstance().fromJson(json, AccessTokenInfo.class);
   }
 
   public static UserInfo parseUserInfoJson(final String json) {
-    LOGGER.log(Level.INFO, "parse user info json: " + json);
+    LOGGER.log(Level.FINER, "parse user info json: " + json);
 
     return ParseUtils.getGsonInstance().fromJson(json, UserInfo.class);
   }
