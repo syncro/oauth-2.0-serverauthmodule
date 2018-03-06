@@ -1,4 +1,4 @@
-library 'smartlogic-common@ta6508-auth-by-okta'
+library 'smartlogic-common'
 
 DOCKER_IMAGE = 'maven:3.5'
 
