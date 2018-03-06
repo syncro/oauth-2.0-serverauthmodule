@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
+
 import javax.security.auth.Subject;
 import javax.security.auth.callback.Callback;
 import javax.security.auth.callback.CallbackHandler;
@@ -22,6 +24,7 @@ import javax.security.auth.message.MessagePolicy;
 import javax.security.auth.message.callback.CallerPrincipalCallback;
 import javax.security.auth.message.callback.GroupPrincipalCallback;
 import javax.security.auth.message.module.ServerAuthModule;
+import javax.servlet.RequestDispatcher;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -50,6 +53,8 @@ public class OAuthServerAuthModule implements ServerAuthModule {
   /*
    * property names
    */
+  private static final String LOGIN_REQUEST_REGEXP_PROPERTY_NAME = "login_request_regexp";
+  private static final String FORWARD_TO_IF_NOT_AUTHENTICATED_PROPERTY_NAME = "forward_to_if_not_authenticated";
   private static final String ENDPOINT_PROPERTY_NAME = "oauth.endpoint";
   private static final String CLIENTID_PROPERTY_NAME = "oauth.clientid";
   private static final String CLIENTSECRET_PROPERTY_NAME = "oauth.clientsecret";
@@ -60,10 +65,12 @@ public class OAuthServerAuthModule implements ServerAuthModule {
   private static final String SCOPE_VALUES = "oauth.scope";
   private static Logger LOGGER = Logger.getLogger(OAuthServerAuthModule.class.getName());
   protected static final Class[] SUPPORTED_MESSAGE_TYPES = new Class[]{
-    javax.servlet.http.HttpServletRequest.class,
-    javax.servlet.http.HttpServletResponse.class};
+      javax.servlet.http.HttpServletRequest.class,
+      javax.servlet.http.HttpServletResponse.class};
   private CallbackHandler handler;
   //properties
+  private String loginForward;
+  private String loginReqeustRegexp;
   private String clientid;
   private String clientSecret;
   private URI endpoint;
@@ -102,6 +109,8 @@ public class OAuthServerAuthModule implements ServerAuthModule {
     //properties
     this.clientid = retrieveRequiredProperty(options, CLIENTID_PROPERTY_NAME);
     this.clientSecret = retrieveRequiredProperty(options, CLIENTSECRET_PROPERTY_NAME);
+    this.loginForward = retrieveOptionalProperty(options, FORWARD_TO_IF_NOT_AUTHENTICATED_PROPERTY_NAME, null);
+    this.loginReqeustRegexp = retrieveOptionalProperty(options, LOGIN_REQUEST_REGEXP_PROPERTY_NAME, ".*");
     try {
       this.endpoint = new URI(retrieveRequiredProperty(options, ENDPOINT_PROPERTY_NAME));
     } catch (URISyntaxException ex) {
@@ -141,7 +150,7 @@ public class OAuthServerAuthModule implements ServerAuthModule {
   LoginContext createLoginContext(final String loginContextName, final OAuthCallbackHandler oAuthCallbackHandler) throws AuthException {
     try {
       final LoginContext createdLoginContext =
-              new LoginContext(loginContextName, oAuthCallbackHandler);
+          new LoginContext(loginContextName, oAuthCallbackHandler);
       return createdLoginContext;
     } catch (LoginException ex) {
       if (ignoreMissingLoginContext && ex.getMessage().contains("No LoginModules configured")) {
@@ -253,17 +262,46 @@ public class OAuthServerAuthModule implements ServerAuthModule {
       applySubject(savedSubject, clientSubject);
       return AuthStatus.SUCCESS;
     } else {
+      return handleMandatoryRequestForNewSubject(request, response, stateHelper);
+    }
+  }
+
+  private AuthStatus handleMandatoryRequestForNewSubject(final HttpServletRequest request,
+      final HttpServletResponse response, final StateHelper stateHelper) {
+    if (shouldAutenticateWithProvider(request)) {
       stateHelper.saveOriginalRequestPath();
       final String redirectUri = buildRedirectUri(request);
-      final URI oauthUri = ApiUtils.buildOauthAuthorizeUri(redirectUri, endpoint, clientid, scopes);
+      final URI oauthUri =
+          ApiUtils.buildOauthAuthorizeUri(redirectUri, endpoint, clientid, scopes);
       try {
-        LOGGER.log(Level.FINE, "redirecting to {0} for OAuth", new Object[]{oauthUri});
+        LOGGER.log(Level.FINE, "redirecting to {0} for OAuth", new Object[] { oauthUri });
         response.sendRedirect(oauthUri.toString());
       } catch (IOException ex) {
         throw new IllegalStateException("Unable to redirect to " + oauthUri, ex);
       }
       return AuthStatus.SEND_CONTINUE;
+    } else if (loginForward != null) {
+      RequestDispatcher dispatcher = request.getRequestDispatcher(this.loginForward);
+      try {
+        dispatcher.forward(request, response);
+      } catch (Exception e) {
+        throw new IllegalStateException("Unable to redirect to logon page", e);
+      }
+      return AuthStatus.SEND_CONTINUE;
     }
+    return AuthStatus.SEND_FAILURE;
+  }
+
+  private boolean shouldAutenticateWithProvider(final HttpServletRequest request) {
+    if (loginReqeustRegexp == null) {
+      return true;
+    }
+    String requestURL = request.getRequestURL().toString();
+    String query = request.getQueryString();
+    if (query != null) {
+      requestURL += "?" + query;
+    }
+    return Pattern.compile(loginReqeustRegexp).matcher(requestURL).matches();
   }
 
   /**
@@ -281,9 +319,9 @@ public class OAuthServerAuthModule implements ServerAuthModule {
     if (!defaultGroups.isEmpty()) {
       groups.addAll(Arrays.asList(defaultGroups.split(",")));
     }
-    
+
     if( tokenGroups != null && !tokenGroups.isEmpty()){
-    	groups.addAll(Arrays.asList(tokenGroups.split(",")));
+      groups.addAll(Arrays.asList(tokenGroups.split(",")));
     }
 
     // add domain of email as group
@@ -305,15 +343,23 @@ public class OAuthServerAuthModule implements ServerAuthModule {
   }
 
   String buildRedirectUri(final HttpServletRequest request) {
+    return buildRedirectUri(request, oauthAuthenticationCallbackUri);
+  }
+
+  String buildLogonRedirectUri(final HttpServletRequest request) {
+    return buildRedirectUri(request, loginForward);
+  }
+
+  String buildRedirectUri(final HttpServletRequest request, String relativeUri) {
     final String serverScheme = request.getScheme();
     final String serverUserInfo = null;
     final String serverHost = request.getServerName();
     final int serverPort = request.getServerPort();
-    final String path = request.getContextPath() + oauthAuthenticationCallbackUri;
-    final String query = null;
+    final String path = request.getContextPath() + relativeUri;
     final String serverFragment = null;
     try {
-      return new URI(serverScheme, serverUserInfo, serverHost, serverPort, path, query, serverFragment).toString();
+      return new URI(serverScheme, serverUserInfo, serverHost, serverPort, path, null,
+          serverFragment).toString();
     } catch (URISyntaxException ex) {
       throw new IllegalStateException("Unable to build redirectUri", ex);
     }
@@ -321,7 +367,7 @@ public class OAuthServerAuthModule implements ServerAuthModule {
 
   boolean setCallerPrincipal(Subject clientSubject, UserInfo userInfo, List<String> groups) {
     final CallerPrincipalCallback principalCallback = new CallerPrincipalCallback(
-            clientSubject, new OAuthPrincipal(userInfo));
+        clientSubject, new OAuthPrincipal(userInfo));
 
     final Callback[] callbacks;
     if (groups.isEmpty()) {
@@ -343,7 +389,7 @@ public class OAuthServerAuthModule implements ServerAuthModule {
 
   static void applySubject(final Subject source, Subject destination) {
     destination.getPrincipals().addAll(
-            source.getPrincipals());
+        source.getPrincipals());
     destination.getPublicCredentials().addAll(source.getPublicCredentials());
     destination.getPrivateCredentials().addAll(source.getPrivateCredentials());
   }
