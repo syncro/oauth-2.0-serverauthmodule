@@ -225,7 +225,7 @@ public class OAuthServerAuthModule implements ServerAuthModule {
     messageInfo.getMap().put(AUTH_TYPE_INFO_KEY, AUTH_TYPE_OAUTH_KEY);
     stateHelper.saveSubject(subject);
 
-    final URI orignalRequestUri = stateHelper.extractOriginalRequestPath();
+    final URI orignalRequestUri = stateHelper.extractOriginalRequest();
     if (orignalRequestUri != null) {
       try {
         LOGGER.log(Level.FINE, "redirecting to original request path: {0}", orignalRequestUri);
@@ -269,7 +269,7 @@ public class OAuthServerAuthModule implements ServerAuthModule {
   private AuthStatus handleMandatoryRequestForNewSubject(final HttpServletRequest request,
       final HttpServletResponse response, final StateHelper stateHelper) {
     if (shouldAutenticateWithProvider(request)) {
-      stateHelper.saveOriginalRequestPath();
+      stateHelper.saveOriginalRequest();
       final String redirectUri = buildRedirectUri(request);
       final URI oauthUri =
           ApiUtils.buildOauthAuthorizeUri(redirectUri, endpoint, clientid, scopes);
@@ -298,10 +298,8 @@ public class OAuthServerAuthModule implements ServerAuthModule {
     }
     String requestURL = request.getRequestURL().toString();
     String query = request.getQueryString();
-    if (query != null) {
-      requestURL += "?" + query;
-    }
-    return Pattern.compile(loginReqeustRegexp).matcher(requestURL).matches();
+    URI uri = Uris.buildUriWithQueryString(URI.create(requestURL), query);
+    return Pattern.compile(loginReqeustRegexp).matcher(uri.toString()).matches();
   }
 
   /**

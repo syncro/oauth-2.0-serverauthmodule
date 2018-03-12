@@ -4,6 +4,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import javax.security.auth.Subject;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
@@ -22,6 +23,7 @@ public class StateHelper {
    */
   private static final String SESSION_PREFIX = StateHelper.class.getName() + ".";
   private static final String ORIGINAL_REQUEST_PATH = SESSION_PREFIX + "original_request_path";
+  private static final String ORIGINAL_REQUEST_QUERY = SESSION_PREFIX + "original_request_query";
   private static final String SAVED_SUBJECT = SESSION_PREFIX + "saved_subject";
   private final HttpServletRequest request;
 
@@ -48,23 +50,29 @@ public class StateHelper {
     }
   }
 
-  public void saveOriginalRequestPath() {
+  public void saveOriginalRequest() {
     final HttpSession session = request.getSession(true);
     try {
       final URI orignalRequestUri = new URI(request.getRequestURI());
       session.setAttribute(ORIGINAL_REQUEST_PATH, orignalRequestUri);
-      LOGGER.log(Level.FINE, "Saved original request path {0}", orignalRequestUri);
+      final String originalRequestQuery = request.getQueryString();
+      if (originalRequestQuery != null) {
+        session.setAttribute(ORIGINAL_REQUEST_QUERY, originalRequestQuery);
+      }
+      LOGGER.log(Level.FINE, "Saved original request {0}",
+          Uris.buildUriWithQueryString(orignalRequestUri, originalRequestQuery));
     } catch (URISyntaxException ex) {
       LOGGER.log(Level.WARNING, "Unable to save original request path", ex);
     }
   }
 
-  public URI extractOriginalRequestPath() {
+  public URI extractOriginalRequest() {
     final HttpSession session = request.getSession(false);
     if (session != null) {
       final URI originalRequestPath = (URI) session.getAttribute(ORIGINAL_REQUEST_PATH);
       session.removeAttribute(ORIGINAL_REQUEST_PATH);
-      return originalRequestPath;
+      final String originalRequestQuery = (String) session.getAttribute(ORIGINAL_REQUEST_QUERY);
+      return Uris.buildUriWithQueryString(originalRequestPath, originalRequestQuery);
     } else {
       return null;
     }
