@@ -53,8 +53,9 @@ public class OAuthServerAuthModule implements ServerAuthModule {
   /*
    * property names
    */
-  private static final String LOGIN_REQUEST_REGEXP_PROPERTY_NAME = "login_request_regexp";
-  private static final String FORWARD_TO_IF_NOT_AUTHENTICATED_PROPERTY_NAME = "forward_to_if_not_authenticated";
+  private static final String LOGIN_REQUEST_PARAM_PROPERTY_NAME = "login_request_param";
+  private static final String FORWARD_TO_IF_NOT_AUTHENTICATED_PROPERTY_NAME =
+      "forward_to_if_not_authenticated";
   private static final String ENDPOINT_PROPERTY_NAME = "oauth.endpoint";
   private static final String CLIENTID_PROPERTY_NAME = "oauth.clientid";
   private static final String CLIENTSECRET_PROPERTY_NAME = "oauth.clientsecret";
@@ -70,7 +71,7 @@ public class OAuthServerAuthModule implements ServerAuthModule {
   private CallbackHandler handler;
   //properties
   private String loginForward;
-  private String loginReqeustRegexp;
+  private String loginReqeustParam;
   private String clientid;
   private String clientSecret;
   private URI endpoint;
@@ -109,8 +110,10 @@ public class OAuthServerAuthModule implements ServerAuthModule {
     //properties
     this.clientid = retrieveRequiredProperty(options, CLIENTID_PROPERTY_NAME);
     this.clientSecret = retrieveRequiredProperty(options, CLIENTSECRET_PROPERTY_NAME);
-    this.loginForward = retrieveOptionalProperty(options, FORWARD_TO_IF_NOT_AUTHENTICATED_PROPERTY_NAME, null);
-    this.loginReqeustRegexp = retrieveOptionalProperty(options, LOGIN_REQUEST_REGEXP_PROPERTY_NAME, ".*");
+    this.loginForward =
+        retrieveOptionalProperty(options, FORWARD_TO_IF_NOT_AUTHENTICATED_PROPERTY_NAME, null);
+    this.loginReqeustParam =
+        retrieveOptionalProperty(options, LOGIN_REQUEST_PARAM_PROPERTY_NAME, null);
     try {
       this.endpoint = new URI(retrieveRequiredProperty(options, ENDPOINT_PROPERTY_NAME));
     } catch (URISyntaxException ex) {
@@ -268,11 +271,12 @@ public class OAuthServerAuthModule implements ServerAuthModule {
 
   private AuthStatus handleMandatoryRequestForNewSubject(final HttpServletRequest request,
       final HttpServletResponse response, final StateHelper stateHelper) {
-    if (shouldAutenticateWithProvider(request)) {
-      stateHelper.saveOriginalRequest();
+    LoginRequestHelper loginRequestHelper = new LoginRequestHelper(this.loginReqeustParam);
+    if (loginRequestHelper.shouldAuthenticate(request.getQueryString())) {
+      String query = loginRequestHelper.getQueryOmittingLoginParam(request.getQueryString());
+      stateHelper.saveOriginalRequest(URI.create(request.getRequestURI()), query);
       final String redirectUri = buildRedirectUri(request);
-      final URI oauthUri =
-          ApiUtils.buildOauthAuthorizeUri(redirectUri, endpoint, clientid, scopes);
+      final URI oauthUri = ApiUtils.buildOauthAuthorizeUri(redirectUri, endpoint, clientid, scopes);
       try {
         LOGGER.log(Level.FINE, "redirecting to {0} for OAuth", new Object[] { oauthUri });
         response.sendRedirect(oauthUri.toString());
@@ -292,15 +296,6 @@ public class OAuthServerAuthModule implements ServerAuthModule {
     return AuthStatus.SEND_FAILURE;
   }
 
-  private boolean shouldAutenticateWithProvider(final HttpServletRequest request) {
-    if (loginReqeustRegexp == null) {
-      return true;
-    }
-    String requestURL = request.getRequestURL().toString();
-    String query = request.getQueryString();
-    URI uri = Uris.buildUriWithQueryString(URI.create(requestURL), query);
-    return Pattern.compile(loginReqeustRegexp).matcher(uri.toString()).matches();
-  }
 
   /**
    * Builds a list of group names which contain any groups from defaultGroups and any principals from LoginContext

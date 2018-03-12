@@ -66,14 +66,14 @@ default: '"openid email profile"'
 
 'oauth.scope' is a space (" ") separated list of scopes requested from your OAuth2 provider.
 
-#### `login_request_regexp` (_optional_)
-default: '".*"'
+#### `login_request_param` (_optional_)
+default: '(none)'
 
-'login_request_regexp' is a regexp matching to the concatenated request URL and query. It used to
+'login_request_param' is a the concatenated query parameter key and value query. It used to
 determine whether the request requires oauth authentication, if not authenticated yet.
 
 Example usage is not to authenticate automatically all requests with ouath provider. Instead,
-only a specific request matching the regexp is used to authenticate the user (create the session).
+only a specific request matching the specified parameter is used to authenticate the user (create the session).
 All other requests (if the session is not established yet) are redirected to the landing page,
 where the landing page has a button "Log in with outh provider", which sends a request the matching
 'login_request_regexp' value.
@@ -82,9 +82,9 @@ where the landing page has a button "Log in with outh provider", which sends a r
 default: '(none)'
 
 'forward_to_if_not_authenticated' specifies the application relative path that will be used
-for landing page for a not authenticated request, which does not match `login_request_regexp`.
+for landing page for a not authenticated request, which does not match `login_request_param`.
 
-Note that, this parameter is only relevant when `login_request_regexp` is defined.
+Note that, this parameter is only relevant when `login_request_param` is defined.
 
 ### GlassFish Configuration
 See [Phillip Green's GlassFish Configuration](https://bitbucket.org/phillip_green_idmworks/google-oauth-2.0-serverauthmodule/wiki/setup/2-configuration).  Note, the name of the class has changed in this fork.  The class name is com.smartlogic.security.OAuthServerAuthmodule.
@@ -139,8 +139,8 @@ See [Tomcat JASPIC Configuration][tomcat85-jaspic]
 				  value="https://oktaauthendpoint.oktapreview.com/oauth2/oktapplicationkey/v1" />
 	        <property name="ignore_missing_login_context"
 	            value="true" />
-          <property name="login_request_regexp"
-              value=".*loginProvider=okta.*" />
+          <property name="login_request_param"
+              value="oauth.loginProvider=okta" />
           <property name="forward_to_if_not_authenticated"
               value="/logon.jsp" />
 	        <property name="default_groups"

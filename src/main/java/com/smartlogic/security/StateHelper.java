@@ -1,7 +1,6 @@
 package com.smartlogic.security;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -50,31 +49,26 @@ public class StateHelper {
     }
   }
 
-  public void saveOriginalRequest() {
+  public void saveOriginalRequest(URI uri, String query) {
     final HttpSession session = request.getSession(true);
-    try {
-      final URI orignalRequestUri = new URI(request.getRequestURI());
-      session.setAttribute(ORIGINAL_REQUEST_PATH, orignalRequestUri);
-      final String originalRequestQuery = request.getQueryString();
-      if (originalRequestQuery != null) {
-        session.setAttribute(ORIGINAL_REQUEST_QUERY, originalRequestQuery);
-      }
-      LOGGER.log(Level.FINE, "Saved original request {0}",
-          Uris.buildUriWithQueryString(orignalRequestUri, originalRequestQuery));
-    } catch (URISyntaxException ex) {
-      LOGGER.log(Level.WARNING, "Unable to save original request path", ex);
+    session.setAttribute(ORIGINAL_REQUEST_PATH, uri);
+    if (query != null) {
+      session.setAttribute(ORIGINAL_REQUEST_QUERY, query);
     }
+    LOGGER.log(Level.FINE, "Saved original request {0}", Uris.buildUriWithQueryString(uri, query));
   }
 
   public URI extractOriginalRequest() {
     final HttpSession session = request.getSession(false);
     if (session != null) {
       final URI originalRequestPath = (URI) session.getAttribute(ORIGINAL_REQUEST_PATH);
-      session.removeAttribute(ORIGINAL_REQUEST_PATH);
       final String originalRequestQuery = (String) session.getAttribute(ORIGINAL_REQUEST_QUERY);
+      session.removeAttribute(ORIGINAL_REQUEST_PATH);
+      session.removeAttribute(ORIGINAL_REQUEST_QUERY);
       return Uris.buildUriWithQueryString(originalRequestPath, originalRequestQuery);
     } else {
       return null;
     }
   }
+
 }
