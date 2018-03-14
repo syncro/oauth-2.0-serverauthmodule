@@ -1,13 +1,11 @@
 package com.smartlogic.security;
 
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.http.NameValuePair;
-import org.apache.http.client.utils.URLEncodedUtils;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class LoginRequestHelper {
+
+  private static final String PARAMS_SEP = "&";
 
   private String loginRequestParam;
 
@@ -19,13 +17,10 @@ public class LoginRequestHelper {
     if (loginRequestParam == null) {
       return true;
     }
-    List<NameValuePair> params = parse(query);
-    for (NameValuePair param : params) {
-      if (isMatching(param, loginRequestParam)) {
-        return true;
-      }
+    if (query == null) {
+      return false;
     }
-    return false;
+    return split(query).anyMatch(this::isMatching);
   }
 
   public String getQueryOmittingLoginParam(String query) {
@@ -35,27 +30,15 @@ public class LoginRequestHelper {
     if (query == null) {
       return null;
     }
-    List<NameValuePair> params = parse(query);
-    List<NameValuePair> result = getNonMatching(params, loginRequestParam);
-    return URLEncodedUtils.format(result, StandardCharsets.UTF_8);
+    return split(query).filter(x -> !isMatching(x)).collect(Collectors.joining(PARAMS_SEP));
   }
 
-  private List<NameValuePair> getNonMatching(List<NameValuePair> params, String loginRequestParam) {
-    List<NameValuePair> result = new ArrayList<NameValuePair>();
-    for (NameValuePair param : params) {
-      if (!isMatching(param, loginRequestParam)) {
-        result.add(param);
-      }
-    }
-    return result;
+  private boolean isMatching(String x) {
+    return x.equals(loginRequestParam);
   }
 
-  private List<NameValuePair> parse(String query) {
-    return URLEncodedUtils.parse(query, StandardCharsets.UTF_8);
-  }
-
-  private boolean isMatching(NameValuePair param, String loginRequestParam) {
-    return loginRequestParam.equals(param.getName() + "=" + param.getValue());
+  private Stream<String> split(String query) {
+    return Stream.of(query.split(PARAMS_SEP));
   }
 
 }
