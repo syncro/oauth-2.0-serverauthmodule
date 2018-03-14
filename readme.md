@@ -5,7 +5,7 @@ OAuth 2.0 ServerAuthModule is a ServerAuthModule (SAM), [JSR-196 (JASPIC) Spec][
 Installation
 ============
 
-Copy `oauth-2_0-sam-0.2.x-SNAPSHOT-jar-with-dependencies.jar` into the class path of the application server.
+Copy `oauth-2_0-sam-0.2.x-(SNAPSHOT)-jar-with-dependencies.jar` into the class path of the application server.
 
 Configuration
 =============
