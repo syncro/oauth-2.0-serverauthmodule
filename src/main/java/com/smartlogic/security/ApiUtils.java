@@ -8,6 +8,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import javax.net.ssl.HttpsURLConnection;
 
 import com.smartlogic.security.api.UserInfo;
@@ -28,7 +29,6 @@ public class ApiUtils {
 	 */
 
 	public static final String USERINFO_API_PERMISSIONS = "openid email profile";
-	public static final String USERINFO_API = "userinfo";
 	/*
 	 * parameters
 	 */
@@ -44,11 +44,6 @@ public class ApiUtils {
 	public static final String USERINFO_API_PICTURE_PARAMETER = "picture";
 	public static final String USERINFO_API_LOCALE_PARAMETER = "locale";
 
-	/*
-	 * User Token API
-	 */
-	public static final String TOKEN_API = "token";
-	public static final String AUTHORIZE_API = "authorize";
 	/*
 	 * parameters
 	 */
@@ -75,7 +70,8 @@ public class ApiUtils {
 	public static final String TOKEN_API_AUTHORIZATION_CODE_VALUE = "authorization_code";
 	private static final Logger LOGGER = Logger.getLogger(ApiUtils.class.getName());
 
-	public static URI buildOauthAuthorizeUri(final String redirectUri, final URI endpoint, final String clientid, final String scopes) {
+	public static URI buildOauthAuthorizeUri(final String redirectUri, final URI endpoint, final String clientid,
+			final String scopes) {
 
 		final StringBuilder querySb = new StringBuilder();
 		querySb.append(TOKEN_API_SCOPE_PARAMETER).append("=").append(scopes);
@@ -94,7 +90,7 @@ public class ApiUtils {
 				: endpoint.getQuery() + "&" + querySb.toString();
 		try {
 			return new URI(endpoint.getScheme(), endpoint.getUserInfo(), endpoint.getHost(), endpoint.getPort(),
-					endpoint.getPath() + "/" + AUTHORIZE_API, totalQuery, endpoint.getFragment());
+					endpoint.getPath(), totalQuery, endpoint.getFragment());
 		} catch (URISyntaxException ex) {
 			throw new IllegalArgumentException("Unable to build Oauth Uri", ex);
 		}
@@ -110,7 +106,7 @@ public class ApiUtils {
 
 		try {
 			httpsURLConnection = (HttpsURLConnection) destination.toURL().openConnection();
-			if(token != null && token.length() > 0 )
+			if (token != null && token.length() > 0)
 				httpsURLConnection.setRequestProperty("Authorization", "Bearer " + token);
 			httpsURLConnection.setRequestMethod(method);
 			if (body != null) {
@@ -179,6 +175,7 @@ public class ApiUtils {
 	static Response GET(final URI destination, final String token) {
 		return sendRequest("GET", destination, null, token);
 	}
+
 	static Response GET(final URI destination) {
 		return sendRequest("GET", destination, null, null);
 	}
@@ -187,14 +184,14 @@ public class ApiUtils {
 		return sendRequest("POST", destination, body, null);
 	}
 
-	public static AccessTokenInfo lookupAccessTokenInfo(URI endpoint, String redirectUri, String authorizationCode, String clientid,
-			String clientSecret) {
+	public static AccessTokenInfo lookupAccessTokenInfo(URI endpoint, String redirectUri, String authorizationCode,
+			String clientid, String clientSecret) {
 		// FIXME cache URI
 		final URI apiUri;
 		try {
-			apiUri = new URI(endpoint.toString() + "/" + TOKEN_API);
+			apiUri = new URI(endpoint.toString());
 		} catch (URISyntaxException ex) {
-			throw new IllegalStateException("unable to create uri for " + TOKEN_API, ex);
+			throw new IllegalStateException("unable to create uri for " + endpoint, ex);
 		}
 
 		final StringBuilder bodySb = new StringBuilder();
@@ -214,7 +211,7 @@ public class ApiUtils {
 		if (response.getStatus() == 200) {
 			return ParseUtils.parseAccessTokenJson(response.getBody());
 		} else {
-			return null;// FIXME handle this better
+			throw new IllegalStateException(String.format("Failed to get access token with URI %s.  Return code %d", apiUri, response.getStatus()));
 		}
 	}
 
@@ -222,9 +219,9 @@ public class ApiUtils {
 
 		final URI apiUri;
 		try {
-			apiUri = new URI(endpoint.toString() + "/" + USERINFO_API);
+			apiUri = new URI(endpoint.toString());
 		} catch (URISyntaxException ex) {
-			throw new IllegalStateException("unable to create uri for " + USERINFO_API, ex);
+			throw new IllegalStateException("unable to create uri for " + endpoint, ex);
 		}
 
 		final Response response = GET(apiUri, accessTokenInfo.getAccessToken().toString());
@@ -232,7 +229,7 @@ public class ApiUtils {
 		if (response.getStatus() == 200) {
 			return ParseUtils.parseUserInfoJson(response.getBody());
 		} else {
-			return null;// FIXME handle this better
+			throw new IllegalStateException(String.format("Failed to get userinfo with URI %s.  Return code %d", apiUri, response.getStatus()));
 		}
 
 	}

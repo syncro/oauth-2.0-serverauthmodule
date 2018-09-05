@@ -25,13 +25,25 @@ The following attributes can be used to configure `com.smartlogic.security.googl
 `oauth.clientsecret` must be set to the "`Client Secret`" from your OAuth2 providers API console of the "`Client ID`" specified in `oauth.clientid`.
 
 
-#### `oauth.endpoint` (_REQUIRED_)
-`oauth.endpoint` is the URI that will be connect to for the OAuth authentication.
-
-Google Example: `https://accounts.google.com/o/oauth2/auth`
+#### `oauth.endpoint` (_OPTIONAL_)
+`oauth.endpoint` is the URI that will be connect to for the OAuth authentication.  Use this when you have a single base uri and the authorization endpoint is " authorize ", the token api endpoint is " token " and the userinfo endpoint is " userinfo ".  If this is not the case, you must specify each individual uri.
 
 Okta Example: `https://dev-926840.oktapreview.com/oauth2/ausd9spsyoOsLKc2i0h7/v1`
 
+#### `oauth.auth_uri` (_optional_)
+`oauth.auth_uri` is the authorization uri.  
+
+Google Example: `https://accounts.google.com/o/oauth2/v2/auth`
+
+#### `oauth.token_uri` (_optional_)
+`oauth.token_uri` is the token uri.  
+
+Google Example: `https://www.googleapis.com/oauth2/v4/token`
+
+#### `oauth.userinfo_uri` (_optional_)
+`oauth.userinfo_uri` is the userinfo uri.  
+
+Google Example: `https://www.googleapis.com/oauth2/v3/userinfo`
 
 #### `oauth.callback_uri` (_optional_) 
 default: `/j_oauth_callback`
@@ -95,26 +107,36 @@ See [Tomcat JASPIC Configuration][tomcat85-jaspic]
 ###Google Tomcat Config Example
 
 	<jaspic-providers xmlns="http://tomcat.apache.org/xml"
-	              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	              xsi:schemaLocation="http://tomcat.apache.org/xml jaspic-providers.xsd"
-	              version="1.0">
-	    <provider name="google-oauth"
-	        className="org.apache.catalina.authenticator.jaspic.SimpleAuthConfigProvider"
-	        layer="HttpServlet"
-	        appContext="Catalina/localhost /contextPath"
-	        description="Google OAuth test">
-	        
-	        <property name="org.apache.catalina.authenticator.jaspic.ServerAuthModule.1"
-	            value="com.smartlogic.security.OAuthServerAuthModule" />
-	        <property name="oauth.endpoint"
-			      value="https://accounts.google.com/o/oauth2/auth" />
-	        <property name="oauth.clientid"
-	            value="obtained-from-Google-console" />
-	        <property name="oauth.clientsecret"
-	            value="obtained-from-Google-console" />
-	        <property name="ignore_missing_login_context"
-	            value="true" />
-	        </provider>
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://tomcat.apache.org/xml jaspic-providers.xsd"
+              version="1.0">
+    	<provider name="google-oauth"
+        	className="org.apache.catalina.authenticator.jaspic.SimpleAuthConfigProvider"
+        	layer="HttpServlet"
+        	appContext="Catalina/localhost /OE"
+        	description="Google OAuth test">
+        
+        	<property name="org.apache.catalina.authenticator.jaspic.ServerAuthModule.1"
+           	value="com.smartlogic.security.OAuthServerAuthModule" />
+        	<property name="oauth.auth_uri"
+		    	value="https://accounts.google.com/o/oauth2/v2/auth" />
+			<property name="oauth.userinfo_uri"
+				value="https://www.googleapis.com/oauth2/v3/userinfo" />
+			<property name="oauth.token_uri"
+			  	value="https://www.googleapis.com/oauth2/v4/token" />
+			<property name="oauth.clientid"
+            	value="MY_GOOGLE_CLIENT_ID" />
+        	<property name="oauth.clientsecret"
+            	value="MY_GOOGLE_CLIENT_SECRET" />
+        	<property name="ignore_missing_login_context"
+            	value="true" />
+        	<!-- property name="login_request_param"
+          		value="oauth.loginProvider=google" -->
+        	<property name='default_groups'
+            	value='SemaphoreUsers,SemaphoreAdministrators'/>
+        	<!-- property name="forward_to_if_not_authenticated"
+          		value="/logon.jsp" -->
+        </provider>
 	</jaspic-providers>
 
 ###OKTA Tomcat Config Example

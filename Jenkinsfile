@@ -1,39 +1,21 @@
-library 'smartlogic-common'
+@Library('smartlogic-common@v2') _
 
 DOCKER_IMAGE = 'maven:3.5'
 
-smartlogic.options().setMaxConcurrentBuilds(1)
-smartlogic.options().setParameters([
-
-  booleanParam(
-    name: 'MAVEN_DEBUG',
-    defaultValue: false,
-    description: 'Enable Maven debug mode'
-  )
-
+smartlogic([
+  docker: DOCKER_IMAGE,
+  builder: smartlogic.mavenBuilder(args: {getMavenArgs()}),
+  archive: {archive()},
+  verify: {verify()},
+  parameters: []
 ])
 
-smartlogic.buildInDocker(DOCKER_IMAGE) {
-  smartlogic.utils().catchError("BUILD", {build()})
-  smartlogic.utils().catchError("ARCHIVE", {archive()})
-  smartlogic.utils().catchError("VERIFY", {verify()})
-}
-
-def build() {
-  mvn("verify")
-}
-
-def mvn(args) {
-  if (params.MAVEN_DEBUG) {
-    args = "-X ${args}"
-  }
-  sh("mvn -B ${args}")
+def getMavenArgs() {
+  []
 }
 
 def archive() {
-  stage('Archive') {
-    archiveArtifacts '**/*.jar'
-  }
+  archiveArtifacts '**/*.jar*'
 }
 
 def verify() {

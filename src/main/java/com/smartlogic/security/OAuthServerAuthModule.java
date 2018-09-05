@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 
 import javax.security.auth.Subject;
 import javax.security.auth.callback.Callback;
@@ -50,6 +49,10 @@ public class OAuthServerAuthModule implements ServerAuthModule {
    * defaults
    */
   public static final String DEFAULT_OAUTH_CALLBACK_PATH = "/j_oauth_callback";
+  public static final String DEFAULT_AUTHORIZE_API = "authorize";
+  public static final String DEFAULT_TOKEN_API = "token";
+  public static final String DEFAULT_USERINFO_API = "userinfo";
+  
   /*
    * property names
    */
@@ -57,6 +60,10 @@ public class OAuthServerAuthModule implements ServerAuthModule {
   private static final String FORWARD_TO_IF_NOT_AUTHENTICATED_PROPERTY_NAME =
       "forward_to_if_not_authenticated";
   private static final String ENDPOINT_PROPERTY_NAME = "oauth.endpoint";
+  private static final String AUTHORIZE_API = "oauth.auth_uri";
+  private static final String TOKEN_API = "oauth.token_uri";
+  private static final String USERINFO_API = "oauth.userinfo_uri";
+  
   private static final String CLIENTID_PROPERTY_NAME = "oauth.clientid";
   private static final String CLIENTSECRET_PROPERTY_NAME = "oauth.clientsecret";
   private static final String CALLBACK_URI_PROPERTY_NAME = "oauth.callback_uri";
@@ -75,6 +82,9 @@ public class OAuthServerAuthModule implements ServerAuthModule {
   private String clientid;
   private String clientSecret;
   private URI endpoint;
+  private URI authApi;
+  private URI tokenApi;
+  private URI userInfoApi;
   private String oauthAuthenticationCallbackUri;
   private boolean ignoreMissingLoginContext;
   private boolean addDomainAsGroup;
@@ -115,7 +125,11 @@ public class OAuthServerAuthModule implements ServerAuthModule {
     this.loginReqeustParam =
         retrieveOptionalProperty(options, LOGIN_REQUEST_PARAM_PROPERTY_NAME, null);
     try {
-      this.endpoint = new URI(retrieveRequiredProperty(options, ENDPOINT_PROPERTY_NAME));
+      this.endpoint = new URI(retrieveOptionalProperty(options, ENDPOINT_PROPERTY_NAME, null));
+      this.tokenApi = new URI(retrieveOptionalProperty(options, TOKEN_API, this.endpoint + "/" + DEFAULT_TOKEN_API));
+      this.authApi = new URI(retrieveOptionalProperty(options, AUTHORIZE_API, this.endpoint + "/" + DEFAULT_AUTHORIZE_API));
+      this.userInfoApi = new URI(retrieveOptionalProperty(options, USERINFO_API, this.endpoint + "/" + DEFAULT_USERINFO_API));
+
     } catch (URISyntaxException ex) {
       final String message = String.format("Invalid field '%s'", ENDPOINT_PROPERTY_NAME);
       LOGGER.log(Level.SEVERE, message, ex);
@@ -199,10 +213,10 @@ public class OAuthServerAuthModule implements ServerAuthModule {
       return AuthStatus.FAILURE;
     } else {
       final String redirectUri = buildRedirectUri(request);
-      final AccessTokenInfo accessTokenInfo = ApiUtils.lookupAccessTokenInfo(endpoint, redirectUri, authorizationCode, clientid, clientSecret);
+      final AccessTokenInfo accessTokenInfo = ApiUtils.lookupAccessTokenInfo(tokenApi, redirectUri, authorizationCode, clientid, clientSecret);
       LOGGER.log(Level.FINE, "Access Token: {0}", new Object[]{accessTokenInfo});
 
-      final UserInfo userInfo = ApiUtils.retrieveUserInfo(endpoint, accessTokenInfo);
+      final UserInfo userInfo = ApiUtils.retrieveUserInfo(userInfoApi, accessTokenInfo);
       if (userInfo == null) {
         //FIXME handle failure better
         return AuthStatus.SEND_FAILURE;
@@ -276,7 +290,7 @@ public class OAuthServerAuthModule implements ServerAuthModule {
       String query = loginRequestHelper.getQueryOmittingLoginParam(request.getQueryString());
       stateHelper.saveOriginalRequest(URI.create(request.getRequestURI()), query);
       final String redirectUri = buildRedirectUri(request);
-      final URI oauthUri = ApiUtils.buildOauthAuthorizeUri(redirectUri, endpoint, clientid, scopes);
+      final URI oauthUri = ApiUtils.buildOauthAuthorizeUri(redirectUri, authApi, clientid, scopes);
       try {
         LOGGER.log(Level.FINE, "redirecting to {0} for OAuth", new Object[] { oauthUri });
         response.sendRedirect(oauthUri.toString());
