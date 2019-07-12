@@ -130,12 +130,12 @@ See [Tomcat JASPIC Configuration][tomcat85-jaspic]
             	value="MY_GOOGLE_CLIENT_SECRET" />
         	<property name="ignore_missing_login_context"
             	value="true" />
-        	<!-- property name="login_request_param"
-          		value="oauth.loginProvider=google" -->
+        	<property name="login_request_param"
+            	value="oauth.loginProvider=google" />
         	<property name='default_groups'
             	value='SemaphoreUsers,SemaphoreAdministrators'/>
-        	<!-- property name="forward_to_if_not_authenticated"
-          		value="/logon.jsp" -->
+        	<property name="forward_to_if_not_authenticated"
+            	value="/logon.jsp" />
         </provider>
 	</jaspic-providers>
 

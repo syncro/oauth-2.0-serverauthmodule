@@ -1,6 +1,6 @@
 @Library('smartlogic-common@v2') _
 
-DOCKER_IMAGE = 'maven:3.5'
+DOCKER_IMAGE = 'maven:3.5.3'
 
 smartlogic([
   docker: DOCKER_IMAGE,
