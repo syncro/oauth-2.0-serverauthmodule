@@ -6,13 +6,13 @@
   <parent>
     <groupId>com.smartlogic</groupId>
     <artifactId>smartlogic-parent</artifactId>
-    <version>0.0.42</version>
+    <version>0.0.127</version>
   </parent>
 
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.smartlogoic.security</groupId>
+  <groupId>com.smartlogic.security</groupId>
   <artifactId>oauth-2_0-sam</artifactId>
-  <version>0.2.4.SNAPSHOT</version>
+  <version>0.2.4-SNAPSHOT</version>
 
   <repositories>
     <repository>
