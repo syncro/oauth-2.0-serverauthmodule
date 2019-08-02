@@ -1,6 +1,6 @@
 Overview
 ========
-OAuth 2.0 ServerAuthModule is a ServerAuthModule (SAM), [JSR-196 (JASPIC) Spec][jsr-196], implementation of [OAuth 2.0]: `com.smartlogic.security.google.OAuthServerAuthModule`.  It optionally supports the [LoginModule Bridge Profile].  This module has been tested with [Google OAuth][google-oauth] and [Okta OAuth][okta-oauth] integrated with [Tomcat using JASPIC plugin][tomcat85-jaspic].
+OAuth 2.0 ServerAuthModule is a ServerAuthModule (SAM), [JSR-196 (JASPIC) Spec][jsr-196], implementation of [OAuth 2.0]: `com.smartlogic.security.google.OAuthServerAuthModule`.  It optionally supports the [LoginModule Bridge Profile].  This module has been tested with [Google OAuth][google-oauth] and [Okta OAuth][okta-oauth] and [Keycloack][keycloack] integrated with [Tomcat using JASPIC plugin][tomcat85-jaspic].
 
 Installation
 ============
@@ -72,6 +72,13 @@ If `add_domain_as_group` is `true`, then the domain of the email address of the 
 default: `""`
 
 `default_groups` is a comma (",") separated list of groups that will be given to the principal upon successful authentication.
+
+
+#### `groups_jsonpath` (_optional_)
+default: `"$.payload.tree.realm_access._children.roles._children[*]._value"`
+
+`groups_jsonpath` jsonPath expression to extract groups, defaulting to keycloack defaults.
+
 
 #### 'oauth.scope' (_optional_)
 default: '"openid email profile"'
@@ -207,5 +214,6 @@ References
   [openid4java-jsr196]: http://code.google.com/p/openid4java-jsr196/
   [bitbucket-source]: https://bitbucket.org/phillip_green_smartlogic/oauth-2.0-serverauthmodule
   [okta-oauth]: https://developer.okta.com/docs/api/resources/oauth2
+  [keycloack]: https://www.keycloak.org/
   [tomcat85-jaspic]: https://tomcat.apache.org/tomcat-8.5-doc/config/jaspic.html
   [tomcat90-jaspic]: https://tomcat.apache.org/tomcat-9.0-doc/config/jaspic.html

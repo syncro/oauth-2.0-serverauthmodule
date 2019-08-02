@@ -72,7 +72,12 @@ public class OAuthServerAuthModule implements ServerAuthModule {
   private static final String IGNORE_MISSING_LOGIN_CONTEXT = "ignore_missing_login_context";
   private static final String ADD_DOMAIN_AS_GROUP = "add_domain_as_group";
   private static final String DEFAULT_GROUPS_PROPERTY_NAME = "default_groups";
+  private static final String GROUPS_JSON_PATH_PROPERTY_NAME = "groups_jsonpath";
+
   private static final String SCOPE_VALUES = "oauth.scope";
+
+  private static final String GROUPS_JSON_PATH_DEFAULT = "$.payload.tree.realm_access._children.roles._children[*]._value";
+
   private static Logger LOGGER = Logger.getLogger(OAuthServerAuthModule.class.getName());
   protected static final Class[] SUPPORTED_MESSAGE_TYPES = new Class[] {
       javax.servlet.http.HttpServletRequest.class, javax.servlet.http.HttpServletResponse.class };
@@ -90,6 +95,7 @@ public class OAuthServerAuthModule implements ServerAuthModule {
   private boolean ignoreMissingLoginContext;
   private boolean addDomainAsGroup;
   private String defaultGroups;
+  private String groupsJsonPath;
   private OAuthCallbackHandler oAuthCallbackHandler;
   private LoginContextWrapper loginContextWrapper;
   private String scopes;
@@ -132,7 +138,7 @@ public class OAuthServerAuthModule implements ServerAuthModule {
           this.endpoint + "/" + DEFAULT_AUTHORIZE_API));
       this.userInfoApi = createURI(retrieveOptionalProperty(options, USERINFO_API,
           this.endpoint + "/" + DEFAULT_USERINFO_API));
-
+      this.groupsJsonPath = retrieveOptionalProperty(options, GROUPS_JSON_PATH_PROPERTY_NAME, GROUPS_JSON_PATH_DEFAULT);
     } catch (RuntimeException ex) {
       final String message = String.format("Invalid field '%s'", ENDPOINT_PROPERTY_NAME);
       LOGGER.log(Level.SEVERE, message, ex);
@@ -213,10 +219,23 @@ public class OAuthServerAuthModule implements ServerAuthModule {
         new Object[] { messageInfo, clientSubject, serviceSubject });
 
     final HttpServletRequest request = (HttpServletRequest) messageInfo.getRequestMessage();
+
     final HttpServletResponse response = (HttpServletResponse) messageInfo.getResponseMessage();
 
     if (isOauthResponse(request)) {
-      return handleOauthResponse(messageInfo, request, response, clientSubject);
+      try {
+        return handleOauthResponse(messageInfo, request, response, clientSubject);
+      } catch (Exception e) {
+        final String redirectUri = buildRedirectUri(request);
+        final URI oauthUri = ApiUtils.buildOauthAuthorizeUri(redirectUri, authApi, clientid, scopes);
+        LOGGER.log(Level.FINE, "redirecting to {0} for OAuth", new Object[]{oauthUri});
+        try {
+          response.sendRedirect(oauthUri.toString());
+          return AuthStatus.SEND_CONTINUE;
+        } catch (IOException e1) {
+          return AuthStatus.SEND_FAILURE;
+        }
+      }
     } else if (isMandatory(messageInfo)) {
       return handleMandatoryRequest(messageInfo, request, response, clientSubject);
     } else {
@@ -226,7 +245,7 @@ public class OAuthServerAuthModule implements ServerAuthModule {
 
   AuthStatus handleOauthResponse(final MessageInfo messageInfo, final HttpServletRequest request,
       final HttpServletResponse response, final Subject clientSubject) throws AuthException {
-    final String authorizationCode = request.getParameter(ApiUtils.TOKEN_API_CODE_PARAMETER);
+    String authorizationCode = request.getParameter(ApiUtils.TOKEN_API_CODE_PARAMETER);
     final String error = request.getParameter(ApiUtils.TOKEN_API_ERROR_PARAMETER);
     if (error != null && !error.isEmpty()) {
       LOGGER.log(Level.WARNING, "Error authorizing: {0}", new Object[] { error });
@@ -236,7 +255,7 @@ public class OAuthServerAuthModule implements ServerAuthModule {
     } else {
       final String redirectUri = buildRedirectUri(request);
       final AccessTokenInfo accessTokenInfo = ApiUtils.lookupAccessTokenInfo(tokenApi, redirectUri,
-          authorizationCode, clientid, clientSecret);
+          authorizationCode, clientid, clientSecret, groupsJsonPath);
       LOGGER.log(Level.FINE, "Access Token: {0}", new Object[] { accessTokenInfo });
 
       final UserInfo userInfo = ApiUtils.retrieveUserInfo(userInfoApi, accessTokenInfo);
@@ -255,7 +274,6 @@ public class OAuthServerAuthModule implements ServerAuthModule {
       final HttpServletResponse response, final Subject subject, final UserInfo userInfo,
       final String tokenGroups) throws AuthException {
     final StateHelper stateHelper = new StateHelper(request);
-
     oAuthCallbackHandler.setUserInfo(userInfo);
 
     final Subject lcSubject = loginWithLoginContext();
@@ -288,7 +306,6 @@ public class OAuthServerAuthModule implements ServerAuthModule {
    *                         wrapped LoginException from loginContext.login()
    */
   Subject loginWithLoginContext() throws AuthException {
-
     try {
       loginContextWrapper.login();
       return loginContextWrapper.getSubject();
@@ -300,9 +317,8 @@ public class OAuthServerAuthModule implements ServerAuthModule {
   AuthStatus handleMandatoryRequest(final MessageInfo messageInfo, final HttpServletRequest request,
       final HttpServletResponse response, final Subject clientSubject) throws AuthException {
     final StateHelper stateHelper = new StateHelper(request);
-
     final Subject savedSubject = stateHelper.retrieveSavedSubject();
-    if (savedSubject != null) {
+    if (savedSubject != null && savedSubject.getPrivateCredentials().size() > 0) {
       LOGGER.log(Level.FINE, "Applying saved subject: {0}", savedSubject);
       applySubject(savedSubject, clientSubject);
       return AuthStatus.SUCCESS;
@@ -353,7 +369,6 @@ public class OAuthServerAuthModule implements ServerAuthModule {
   List<String> buildGroupNames(final UserInfo userInfo, final Iterable<Principal> principals,
       final String tokenGroups) {
     final List<String> groups = new ArrayList<>();
-
     // add default groups if defined
     if (!defaultGroups.isEmpty()) {
       groups.addAll(Arrays.asList(defaultGroups.split(",")));
@@ -378,8 +393,8 @@ public class OAuthServerAuthModule implements ServerAuthModule {
   }
 
   boolean isOauthResponse(final HttpServletRequest request) {
-    return request.getRequestURI().contains(oauthAuthenticationCallbackUri);// FIXME needs better
-                                                                            // check
+    String authorizationCode = request.getParameter(ApiUtils.TOKEN_API_CODE_PARAMETER);
+    return request.getRequestURI().contains(oauthAuthenticationCallbackUri) && authorizationCode != null;
   }
 
   String buildRedirectUri(final HttpServletRequest request) {

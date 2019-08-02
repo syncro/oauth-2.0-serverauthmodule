@@ -1,11 +1,9 @@
 package com.smartlogic.security;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.exceptions.JWTDecodeException;
-import com.auth0.jwt.interfaces.Claim;
-import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.gson.annotations.SerializedName;
 
 /**
@@ -22,6 +20,8 @@ public class AccessTokenInfo {
   private final Date expiration;
   @SerializedName("token_type")
   private final String type;
+
+  private List<String> groups = new ArrayList<>();
 
   public AccessTokenInfo() {
     this.accessToken = null;
@@ -46,22 +46,17 @@ public class AccessTokenInfo {
     return getAccessToken();
   }
 
+  public void setGroups(List<String> groups) {
+    this.groups = groups;
+  }
+
   public String getGroups() {
-    return decodeGroups();
+    return groupsAsString();
   }
 
-  private String decodeGroups() {
-    String groups = "";
-    try {
-      DecodedJWT jwt = JWT.decode(accessToken);
-      Claim groupClaim = jwt.getClaims().get(ApiUtils.TOKEN_API_GROUPS_PARAMETER);
-      if (groupClaim != null) {
-        String[] groupsArray = groupClaim.asArray(String.class);
-        groups = String.join(",", groupsArray);
-      }
-    } catch (JWTDecodeException ex) {
-
-    }
-    return groups;
+  public String groupsAsString() {
+    return String.join(",", groups);
   }
+
+
 }

@@ -5,12 +5,16 @@ import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.exceptions.JWTDecodeException;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
+import com.jayway.jsonpath.JsonPath;
 import com.smartlogic.security.api.UserInfo;
 
 /**
@@ -45,11 +49,29 @@ public class ParseUtils {
     return _gsonInstance;
   }
 
+  public static void decodeGroups(AccessTokenInfo accessTokenInfo, String groupsJsonPath) {
+    try {
+      DecodedJWT jwt = JWT.decode(accessTokenInfo.getAccessToken());
+      String tokenString = ParseUtils.getGsonInstance().toJson(jwt);
+      accessTokenInfo.setGroups(JsonPath.read(tokenString, groupsJsonPath));
+    } catch (JWTDecodeException ex) {
+      LOGGER.log(Level.WARNING, "Error decoding groups from token: {0}", ex);
+    }
+  }
 
   public static AccessTokenInfo parseAccessTokenJson(final String json) {
     LOGGER.log(Level.FINER, "parse access token json: " + json);
 
-    return ParseUtils.getGsonInstance().fromJson(json, AccessTokenInfo.class);
+    AccessTokenInfo tokenInfo = ParseUtils.getGsonInstance().fromJson(json, AccessTokenInfo.class);
+    return tokenInfo;
+  }
+
+  public static AccessTokenInfo parseAccessTokenJson(final String json, String groupsJsonPath) {
+    LOGGER.log(Level.FINER, "parse access token json: " + json);
+
+    AccessTokenInfo tokenInfo = ParseUtils.getGsonInstance().fromJson(json, AccessTokenInfo.class);
+    decodeGroups(tokenInfo, groupsJsonPath);
+    return tokenInfo;
   }
 
   public static UserInfo parseUserInfoJson(final String json) {

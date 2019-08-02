@@ -3,30 +3,12 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
-  <parent>
-    <groupId>com.smartlogic</groupId>
-    <artifactId>smartlogic-parent</artifactId>
-    <version>0.0.127</version>
-  </parent>
 
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.smartlogic.security</groupId>
   <artifactId>oauth-2_0-sam</artifactId>
   <version>0.2.5-SNAPSHOT</version>
 
-  <repositories>
-    <repository>
-      <id>central</id>
-      <url>http://cart:8081/repository/maven-public/</url>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-      <snapshots>
-        <enabled>true</enabled>
-        <updatePolicy>never</updatePolicy>
-      </snapshots>
-    </repository>
-  </repositories>
 
   <build>
     <plugins>
@@ -34,7 +16,8 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <compilerArguments combine.self="override" />
+            <source>1.8</source>
+            <target>1.8</target>
         </configuration>
       </plugin>
       <plugin>
@@ -95,6 +78,11 @@
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
       <version>2.8.0</version>
+    </dependency>
+    <dependency>
+        <groupId>com.jayway.jsonpath</groupId>
+        <artifactId>json-path</artifactId>
+        <version>2.4.0</version>
     </dependency>
   </dependencies>
 

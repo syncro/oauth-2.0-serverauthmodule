@@ -4,8 +4,10 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
+
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -72,7 +74,6 @@ public class ApiUtils {
 
 	public static URI buildOauthAuthorizeUri(final String redirectUri, final URI endpoint, final String clientid,
 			final String scopes) {
-
 		final StringBuilder querySb = new StringBuilder();
 		querySb.append(TOKEN_API_SCOPE_PARAMETER).append("=").append(scopes);
 		querySb.append("&");
@@ -96,29 +97,36 @@ public class ApiUtils {
 		}
 	}
 
+	static HttpURLConnection getConnectionByURIType(URI destination) throws IOException {
+		if (destination.toString().startsWith("https")) {
+			return (HttpsURLConnection) destination.toURL().openConnection();
+		} else {
+			return (HttpURLConnection) destination.toURL().openConnection();
+		}
+	}
+
 	static Response sendRequest(final String method, final URI destination, final String body, final String token) {
 		if (LOGGER.isLoggable(Level.FINER)) {
 			LOGGER.log(Level.FINER, "sendRequest({0},{1},{2})",
 					new Object[] { method, destination, "hasBody?" + body != null });
 		}
-
-		HttpsURLConnection httpsURLConnection;
-
+		HttpURLConnection connection;
 		try {
-			httpsURLConnection = (HttpsURLConnection) destination.toURL().openConnection();
-			if (token != null && token.length() > 0)
-				httpsURLConnection.setRequestProperty("Authorization", "Bearer " + token);
-			httpsURLConnection.setRequestMethod(method);
-			if (body != null) {
-				httpsURLConnection.setDoOutput(true);
+			connection = ApiUtils.getConnectionByURIType(destination);
+			if (token != null && token.length() > 0) {
+				connection.setRequestProperty("Authorization", "Bearer " + token);
 			}
-			httpsURLConnection.connect();
+			connection.setRequestMethod(method);
+			if (body != null) {
+				connection.setDoOutput(true);
+			}
+			connection.connect();
 		} catch (IOException ex) {
 			throw new IllegalStateException("Unable to create connection", ex);
 		}
 		if (body != null) {
 			try {
-				final OutputStream out = httpsURLConnection.getOutputStream();
+				final OutputStream out = connection.getOutputStream();
 				LOGGER.log(Level.FINER, "body: {0}", new Object[] { body });
 				out.write(body.getBytes());
 				out.flush();
@@ -129,13 +137,13 @@ public class ApiUtils {
 		}
 
 		try {
-			final int status = httpsURLConnection.getResponseCode();
+			final int status = connection.getResponseCode();
 			LOGGER.log(Level.FINER, "response code: {0}", new Object[] { status });
 
 			final String responseBody;
 			if (status < 400) {
 				final BufferedReader reader = new BufferedReader(
-						new InputStreamReader(httpsURLConnection.getInputStream()));
+						new InputStreamReader(connection.getInputStream()));
 				final StringBuilder stringBuilder = new StringBuilder();
 				String line = null;
 				while ((line = reader.readLine()) != null) {
@@ -185,7 +193,7 @@ public class ApiUtils {
 	}
 
 	public static AccessTokenInfo lookupAccessTokenInfo(URI endpoint, String redirectUri, String authorizationCode,
-			String clientid, String clientSecret) {
+			String clientid, String clientSecret, String groupsJsonPath) {
 		// FIXME cache URI
 		final URI apiUri;
 		try {
@@ -205,18 +213,16 @@ public class ApiUtils {
 		bodySb.append("&");
 		bodySb.append(TOKEN_API_GRANT_TYPE_PARAMETER).append("=").append(TOKEN_API_AUTHORIZATION_CODE_VALUE);
 		LOGGER.log(Level.FINE, "Lookup Access Token body: {0}", bodySb);
-
 		final Response response = POST(apiUri, bodySb.toString());
 
 		if (response.getStatus() == 200) {
-			return ParseUtils.parseAccessTokenJson(response.getBody());
+			return ParseUtils.parseAccessTokenJson(response.getBody(), groupsJsonPath);
 		} else {
 			throw new IllegalStateException(String.format("Failed to get access token with URI %s.  Return code %d", apiUri, response.getStatus()));
 		}
 	}
 
 	public static UserInfo retrieveUserInfo(URI endpoint, AccessTokenInfo accessTokenInfo) {
-
 		final URI apiUri;
 		try {
 			apiUri = new URI(endpoint.toString());

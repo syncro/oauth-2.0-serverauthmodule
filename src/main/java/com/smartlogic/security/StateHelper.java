@@ -65,10 +65,11 @@ public class StateHelper {
       final String originalRequestQuery = (String) session.getAttribute(ORIGINAL_REQUEST_QUERY);
       session.removeAttribute(ORIGINAL_REQUEST_PATH);
       session.removeAttribute(ORIGINAL_REQUEST_QUERY);
-      return Uris.buildUriWithQueryString(originalRequestPath, originalRequestQuery);
-    } else {
-      return null;
+      if (originalRequestPath != null) {
+        return Uris.buildUriWithQueryString(originalRequestPath, originalRequestQuery);
+      }
     }
+    return null;
   }
 
 }
